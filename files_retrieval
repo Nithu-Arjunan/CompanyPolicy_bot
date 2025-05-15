@@ -46,7 +46,7 @@ web_text = web_scrap("https://datasense78.github.io/engineeringsop/")
 
 # -------------------- PINECONE SETUP ----------------------
 
-pc = Pinecone(api_key="pcsk_4TdFoY_7YMQNwoFz26iF5dc59ZVLuPAzxeqsFpuyhGWk6FyNhqApFyQWQYn9LoqrjhEFcW")
+pc = Pinecone(api_key="PINECONE_API_KEY")
 # index_name = "policychatbot"
 # pc.create_index(
 #          name=index_name,
