@@ -1,0 +1,134 @@
+import requests
+from bs4 import BeautifulSoup
+import re
+import os
+from pinecone import Pinecone, ServerlessSpec
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+from sentence_transformers import SentenceTransformer
+import fitz  # PyMuPDF
+
+# Function to scrape data from web
+
+def web_scrap(url):
+    """
+    Scrapes and cleans visible text from a given URL.
+    
+    Args:
+        url (str): The URL of the webpage to scrape.
+        
+    Returns:
+        str: Cleaned visible text from the webpage.
+    """
+    # Fetch page content
+    response = requests.get(url)
+    html_content = response.content
+
+    # Parse HTML
+    soup = BeautifulSoup(html_content, "html.parser")
+
+    # Remove unnecessary tags
+    for script in soup(["script", "style"]):
+        script.extract()
+
+    # Get all visible text
+    text = soup.get_text(separator=' ', strip=True)
+
+    # Clean excessive whitespaces
+    clean_text = re.sub(r'\s+', ' ', text)
+
+    return clean_text
+
+# To test the web scrap data
+#print(web_scrap("https://datasense78.github.io/engineeringsop/"))
+web_text = web_scrap("https://datasense78.github.io/engineeringsop/")
+
+# -------------------- PINECONE SETUP ----------------------
+
+pc = Pinecone(api_key="pcsk_4TdFoY_7YMQNwoFz26iF5dc59ZVLuPAzxeqsFpuyhGWk6FyNhqApFyQWQYn9LoqrjhEFcW")
+# index_name = "policychatbot"
+# pc.create_index(
+#          name=index_name,
+#          dimension=384,  
+#          metric="cosine",
+#          spec=ServerlessSpec(cloud="aws", region="us-east-1")
+#     )
+index = pc.Index("policychatbot") 
+
+# Function to store the scraped data as chunks in pinecone
+
+def Chunk_store(text_data,source_type, source_name):
+
+    # Step 2: Chunk the text
+    text_splitter = RecursiveCharacterTextSplitter(
+     separators=["\n\n", "\n", ".", " "],
+     chunk_size=500,       
+     chunk_overlap=50  
+    )
+    chunks = text_splitter.split_text(text_data)
+    for i in range(len(chunks)):
+     print(f"Chunk {i}: {chunks[i]}")
+
+
+    embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+    embeddings = embedding_model.encode(chunks)
+
+    # for i, chunk in enumerate(chunks):
+    #     chunk_embedding = embedding_model.encode(chunk)
+    #     index.upsert([(str(i), chunk_embedding, {"text": chunk})])
+    # print(f"Successfully added {len(chunks)} chunks to Pinecone!")
+
+    upserts = []
+    for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
+        metadata = {
+            "text": chunk,
+            "source": source_type,
+            "chunk_id": i
+        }
+        if source_type == "pdf":
+            metadata["filename"] = source_name
+        elif source_type == "web":
+            metadata["url"] = source_name
+
+        vector_id = f"{source_type}_{i}_{source_name.replace(' ', '_')}"
+        upserts.append((vector_id, emb.tolist(), metadata))  # Convert numpy to list if needed
+
+    index.upsert(upserts)
+    print(f"✅ Successfully upserted {len(upserts)} chunks from {source_type} into Pinecone.")
+
+#---- Extracting pdf file--------
+
+
+
+# Step 1: Extract text from PDF
+def pdf_to_text(path):
+    doc = fitz.open(path)
+    text = ""
+    for page in doc:
+        text += page.get_text()
+    return text
+
+# Step 2: Clean the text
+def clean_text(text):
+    text = text.replace("•", "-")  # replace bullet with dash
+    text = re.sub(r'\n-\n', '\n', text)  # remove lines with just a dash
+    text = re.sub(r'(?<!\n)\n(?!\n)', ' ', text)  # merge single newlines into a space
+    text = re.sub(r'\s{2,}', ' ', text)  # multiple spaces
+    text = re.sub(r'\n{2,}', '\n\n', text)  # collapse multiple newlines
+    return text.strip()
+
+# Step 3: Run everything
+#pdf_text = pdf_to_text(r"C:\Users\nithu\OneDrive\Desktop\GenAI\Policy_Pilot_bot\Security_Protocol.pdf")
+#pdf_text = pdf_to_text(r"C:\Users\nithu\OneDrive\Desktop\GenAI\Policy_Pilot_bot\Sales_Playbook.pdf")
+#pdf_text = pdf_to_text(r"C:\Users\nithu\OneDrive\Desktop\GenAI\Policy_Pilot_bot\HR_Handbook.pdf")
+#cleaned_text = clean_text(pdf_text)
+
+# Print cleaned output
+#print("Cleaned pdf is:\n", cleaned_text)
+
+#index.delete(delete_all=True)
+#Chunk_store(cleaned_text,source_type="pdf", source_name="Security_Protocol.pdf")
+#Chunk_store(cleaned_text,source_type="pdf", source_name="Sales_Playbook.pdf")
+#Chunk_store(cleaned_text,source_type="pdf", source_name="HR_Handbook.pdf")
+Chunk_store(web_text,source_type="web", source_name="Web_page")
