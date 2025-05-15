@@ -5,9 +5,8 @@ import os
 from pinecone import Pinecone, ServerlessSpec
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-
 from sentence_transformers import SentenceTransformer
-import fitz  # PyMuPDF
+import fitz 
 
 # Function to scrape data from web
 
@@ -47,13 +46,13 @@ web_text = web_scrap("https://datasense78.github.io/engineeringsop/")
 # -------------------- PINECONE SETUP ----------------------
 
 pc = Pinecone(api_key="PINECONE_API_KEY")
-# index_name = "policychatbot"
-# pc.create_index(
-#          name=index_name,
-#          dimension=384,  
-#          metric="cosine",
-#          spec=ServerlessSpec(cloud="aws", region="us-east-1")
-#     )
+     index_name = "policychatbot"
+     pc.create_index(
+          name=index_name,
+          dimension=384,  
+          metric="cosine",
+          spec=ServerlessSpec(cloud="aws", region="us-east-1")
+    )
 index = pc.Index("policychatbot") 
 
 # Function to store the scraped data as chunks in pinecone
@@ -73,11 +72,6 @@ def Chunk_store(text_data,source_type, source_name):
 
     embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
     embeddings = embedding_model.encode(chunks)
-
-    # for i, chunk in enumerate(chunks):
-    #     chunk_embedding = embedding_model.encode(chunk)
-    #     index.upsert([(str(i), chunk_embedding, {"text": chunk})])
-    # print(f"Successfully added {len(chunks)} chunks to Pinecone!")
 
     upserts = []
     for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
@@ -119,16 +113,13 @@ def clean_text(text):
     return text.strip()
 
 # Step 3: Run everything
-#pdf_text = pdf_to_text(r"C:\Users\nithu\OneDrive\Desktop\GenAI\Policy_Pilot_bot\Security_Protocol.pdf")
-#pdf_text = pdf_to_text(r"C:\Users\nithu\OneDrive\Desktop\GenAI\Policy_Pilot_bot\Sales_Playbook.pdf")
-#pdf_text = pdf_to_text(r"C:\Users\nithu\OneDrive\Desktop\GenAI\Policy_Pilot_bot\HR_Handbook.pdf")
-#cleaned_text = clean_text(pdf_text)
+pdf_text = pdf_to_text(r"C:\Users\nithu\OneDrive\Desktop\GenAI\Policy_Pilot_bot\Security_Protocol.pdf")
+pdf_text = pdf_to_text(r"C:\Users\nithu\OneDrive\Desktop\GenAI\Policy_Pilot_bot\Sales_Playbook.pdf")
+pdf_text = pdf_to_text(r"C:\Users\nithu\OneDrive\Desktop\GenAI\Policy_Pilot_bot\HR_Handbook.pdf")
+cleaned_text = clean_text(pdf_text)
 
-# Print cleaned output
-#print("Cleaned pdf is:\n", cleaned_text)
 
-#index.delete(delete_all=True)
-#Chunk_store(cleaned_text,source_type="pdf", source_name="Security_Protocol.pdf")
-#Chunk_store(cleaned_text,source_type="pdf", source_name="Sales_Playbook.pdf")
-#Chunk_store(cleaned_text,source_type="pdf", source_name="HR_Handbook.pdf")
+Chunk_store(cleaned_text,source_type="pdf", source_name="Security_Protocol.pdf")
+Chunk_store(cleaned_text,source_type="pdf", source_name="Sales_Playbook.pdf")
+Chunk_store(cleaned_text,source_type="pdf", source_name="HR_Handbook.pdf")
 Chunk_store(web_text,source_type="web", source_name="Web_page")
