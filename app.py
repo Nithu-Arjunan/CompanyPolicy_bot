@@ -33,7 +33,7 @@ def init_models():
     embedding_model = SentenceTransformerEmbeddings(model=model)
 
     # Pinecone & Vectorstore
-    pc = Pinecone(api_key="pcsk_4TdFoY_7YMQNwoFz26iF5dc59ZVLuPAzxeqsFpuyhGWk6FyNhqApFyQWQYn9LoqrjhEFcW", environment="us-east-1")
+    pc = Pinecone(api_key="PINECONE_API_KEY", environment="us-east-1")
     index = pc.Index("policychatbot")
     vectorstore = LangchainPinecone(index, embedding=embedding_model, text_key="text")
     retriever = vectorstore.as_retriever()
@@ -42,7 +42,7 @@ def init_models():
     llm = ChatGroq(
         model="llama3-70b-8192",
         temperature=0,
-        groq_api_key="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"
+        groq_api_key="GROG_API_KEY"
     )
 
     return retriever, llm
@@ -119,9 +119,6 @@ def run_query_with_sources(query):
     return compliant, docs
 
 # === Streamlit UI ===
-
-
-
 
 query = st.text_input("Enter your query:")
 if query:
