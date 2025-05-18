@@ -9,12 +9,12 @@ from langchain_groq import ChatGroq
 from pinecone import Pinecone
 from langchain_pinecone import Pinecone as LangchainPinecone
 
-# === Streamlit page setup ===
+# -------------- Streamlit page setup ----------------------------------
 st.set_page_config(page_title="AlturaTech policy Assistant", layout="wide")
 st.title("📄 AlturaTech policy Assistant")
 st.markdown("Ask questions based on internal policy documents.")
 
-# === Custom Embeddings Wrapper ===
+# ----------------Custom Embeddings Wrapper------------------------------
 class SentenceTransformerEmbeddings(Embeddings):
     def __init__(self, model):
         self.model = model
@@ -25,7 +25,7 @@ class SentenceTransformerEmbeddings(Embeddings):
     def embed_query(self, text: str) -> List[float]:
         return self.model.encode(text, convert_to_numpy=True).tolist()
 
-# === Setup ===
+# -------------Setup Pinecone and LLM --------------------------------------
 @st.cache_resource
 def init_models():
     # Embeddings
@@ -42,14 +42,15 @@ def init_models():
     llm = ChatGroq(
         model="llama3-70b-8192",
         temperature=0,
-        groq_api_key="GROG_API_KEY"
+        groq_api_key="GROQ_API_KEY"
     )
 
     return retriever, llm
 
 retriever, llm = init_models()
 
-# === Prompts ===
+#-------------------- Prompts ----------------------------------------------------
+
 router_prompt = PromptTemplate(
     input_variables=["question"],
     template="""
@@ -91,7 +92,7 @@ compliance_prompt = PromptTemplate(
 )
 compliance_chain = LLMChain(llm=llm, prompt=compliance_prompt)
 
-# === Core Logic ===
+# ------------------ Core logic- Helper function definition--------------
 def route_fn(query):
     return router_chain.invoke({"question": query})["text"].strip().lower()
 
@@ -118,7 +119,7 @@ def run_query_with_sources(query):
     compliant = compliance_chain.invoke({"answer": answer})["text"]
     return compliant, docs
 
-# === Streamlit UI ===
+# -------------------- Streamlit UI --------------------------------
 
 query = st.text_input("Enter your query:")
 if query:
