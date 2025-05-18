@@ -6,7 +6,21 @@ from pinecone import Pinecone, ServerlessSpec
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
-import fitz 
+import fitz
+
+# -------------------- PINECONE SETUP ----------------------
+
+pc = Pinecone(api_key="PINECONE_API_KEY")
+index_name = "policychatbot"
+pc.create_index(
+         name=index_name,
+         dimension=384,  
+         metric="cosine",
+         spec=ServerlessSpec(cloud="aws", region="us-east-1")
+    )
+index = pc.Index("policychatbot") 
+
+# -------------------------- Data Cleaning & Storing ---------------------------------
 
 # Function to scrape data from web
 
@@ -39,21 +53,27 @@ def web_scrap(url):
 
     return clean_text
 
-# To test the web scrap data
-#print(web_scrap("https://datasense78.github.io/engineeringsop/"))
+
 web_text = web_scrap("https://datasense78.github.io/engineeringsop/")
 
-# -------------------- PINECONE SETUP ----------------------
+## Extracting and cleaning the pdf files
 
-pc = Pinecone(api_key="PINECONE_API_KEY")
-     index_name = "policychatbot"
-     pc.create_index(
-          name=index_name,
-          dimension=384,  
-          metric="cosine",
-          spec=ServerlessSpec(cloud="aws", region="us-east-1")
-    )
-index = pc.Index("policychatbot") 
+# Step 1: Extract text from PDF
+def pdf_to_text(path):
+    doc = fitz.open(path)
+    text = ""
+    for page in doc:
+        text += page.get_text()
+    return text
+
+# Step 2: Clean the text
+def clean_text(text):
+    text = text.replace("•", "-")  # replace bullet with dash
+    text = re.sub(r'\n-\n', '\n', text)  # remove lines with just a dash
+    text = re.sub(r'(?<!\n)\n(?!\n)', ' ', text)  # merge single newlines into a space
+    text = re.sub(r'\s{2,}', ' ', text)  # multiple spaces
+    text = re.sub(r'\n{2,}', '\n\n', text)  # collapse multiple newlines
+    return text.strip()
 
 # Function to store the scraped data as chunks in pinecone
 
@@ -86,38 +106,18 @@ def Chunk_store(text_data,source_type, source_name):
             metadata["url"] = source_name
 
         vector_id = f"{source_type}_{i}_{source_name.replace(' ', '_')}"
-        upserts.append((vector_id, emb.tolist(), metadata))  # Convert numpy to list if needed
+        upserts.append((vector_id, emb.tolist(), metadata)) 
 
     index.upsert(upserts)
     print(f"✅ Successfully upserted {len(upserts)} chunks from {source_type} into Pinecone.")
 
-#---- Extracting pdf file--------
+#
 
-
-
-# Step 1: Extract text from PDF
-def pdf_to_text(path):
-    doc = fitz.open(path)
-    text = ""
-    for page in doc:
-        text += page.get_text()
-    return text
-
-# Step 2: Clean the text
-def clean_text(text):
-    text = text.replace("•", "-")  # replace bullet with dash
-    text = re.sub(r'\n-\n', '\n', text)  # remove lines with just a dash
-    text = re.sub(r'(?<!\n)\n(?!\n)', ' ', text)  # merge single newlines into a space
-    text = re.sub(r'\s{2,}', ' ', text)  # multiple spaces
-    text = re.sub(r'\n{2,}', '\n\n', text)  # collapse multiple newlines
-    return text.strip()
-
-# Step 3: Run everything
+#Step 3: Function calling
 pdf_text = pdf_to_text(r"C:\Users\nithu\OneDrive\Desktop\GenAI\Policy_Pilot_bot\Security_Protocol.pdf")
 pdf_text = pdf_to_text(r"C:\Users\nithu\OneDrive\Desktop\GenAI\Policy_Pilot_bot\Sales_Playbook.pdf")
 pdf_text = pdf_to_text(r"C:\Users\nithu\OneDrive\Desktop\GenAI\Policy_Pilot_bot\HR_Handbook.pdf")
 cleaned_text = clean_text(pdf_text)
-
 
 Chunk_store(cleaned_text,source_type="pdf", source_name="Security_Protocol.pdf")
 Chunk_store(cleaned_text,source_type="pdf", source_name="Sales_Playbook.pdf")
